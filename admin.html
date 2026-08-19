@@ -8,6 +8,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <style>
         * {
             margin: 0;
@@ -42,11 +46,38 @@
             margin-bottom: 8px;
         }
 
+        .sync-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        .sync-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #e67e22;
+        }
+
+        .sync-dot.connected {
+            background: #27ae60;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
         .stats {
             display: flex;
             justify-content: center;
-            gap: 32px;
+            gap: 24px;
             margin-top: 16px;
+            flex-wrap: wrap;
         }
 
         .stat {
@@ -54,35 +85,36 @@
         }
 
         .stat-number {
-            font-size: 2rem;
+            font-size: 1.8rem;
             font-weight: 600;
             display: block;
         }
 
         .stat-label {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             text-transform: uppercase;
             letter-spacing: 0.1em;
             color: #666;
         }
 
-        .stat.invited .stat-number { color: #27ae60; }
+        .stat.confirmed .stat-number { color: #27ae60; }
+        .stat.invited .stat-number { color: #3498db; }
         .stat.pending .stat-number { color: #e67e22; }
         .stat.total .stat-number { color: #34495E; }
 
         .filters {
             display: flex;
-            gap: 12px;
+            gap: 8px;
             margin-bottom: 24px;
             flex-wrap: wrap;
         }
 
         .filter-btn {
-            padding: 8px 16px;
+            padding: 8px 14px;
             border: 1px solid #D5DBDB;
             background: white;
             border-radius: 20px;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             cursor: pointer;
             transition: all 0.2s;
         }
@@ -120,12 +152,13 @@
         .guest-item {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 16px;
+            gap: 10px;
+            padding: 14px;
             background: white;
             border-radius: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             transition: all 0.2s;
+            flex-wrap: wrap;
         }
 
         .guest-item:hover {
@@ -133,24 +166,35 @@
         }
 
         .guest-item.invited {
+            background: #EBF5FB;
+            border-left: 3px solid #3498db;
+        }
+
+        .guest-item.confirmed {
             background: #E8F5E9;
+            border-left: 3px solid #27ae60;
         }
 
         .guest-number {
-            width: 28px;
-            height: 28px;
+            width: 26px;
+            height: 26px;
             display: flex;
             align-items: center;
             justify-content: center;
             background: #F0F0F0;
             border-radius: 50%;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 500;
             color: #666;
             flex-shrink: 0;
         }
 
         .guest-item.invited .guest-number {
+            background: #3498db;
+            color: white;
+        }
+
+        .guest-item.confirmed .guest-number {
             background: #27ae60;
             color: white;
         }
@@ -158,34 +202,46 @@
         .guest-name {
             flex: 1;
             font-weight: 400;
+            min-width: 100px;
         }
 
-        .guest-item.invited .guest-name {
-            text-decoration: line-through;
-            color: #666;
+        .guest-item.confirmed .guest-name {
+            color: #27ae60;
         }
 
-        .invite-btn {
-            padding: 8px 16px;
+        .guest-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
             border: none;
-            border-radius: 20px;
-            font-size: 0.8rem;
+            border-radius: 16px;
+            font-size: 0.75rem;
             cursor: pointer;
             transition: all 0.2s;
+            white-space: nowrap;
         }
 
-        .invite-btn.mark-invited {
+        .action-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .action-btn.invite {
+            background: #3498db;
+            color: white;
+        }
+
+        .action-btn.confirm {
             background: #27ae60;
             color: white;
         }
 
-        .invite-btn.mark-pending {
+        .action-btn.undo {
             background: #e0e0e0;
             color: #666;
-        }
-
-        .invite-btn:hover {
-            transform: scale(1.05);
         }
 
         .progress-bar {
@@ -208,95 +264,65 @@
             display: none !important;
         }
 
-        .sync-section {
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #E0E0E0;
+            border-top-color: #34495E;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .setup-box {
             background: #FFF3CD;
             border: 1px solid #FFECB5;
             border-radius: 12px;
-            padding: 16px;
+            padding: 20px;
             margin-bottom: 24px;
+            text-align: center;
         }
 
-        .sync-title {
-            font-weight: 600;
-            font-size: 0.85rem;
+        .setup-box h2 {
+            font-size: 1rem;
             margin-bottom: 12px;
             color: #856404;
         }
 
-        .sync-buttons {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .sync-btn {
-            padding: 10px 16px;
-            border: none;
-            border-radius: 8px;
+        .setup-box p {
             font-size: 0.85rem;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.2s;
+            color: #664d03;
+            margin-bottom: 16px;
         }
 
-        .sync-btn.export {
-            background: #34495E;
-            color: white;
-        }
-
-        .sync-btn.import {
-            background: #27ae60;
-            color: white;
-        }
-
-        .sync-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-
-        .code-display {
-            margin-top: 12px;
-            padding: 12px;
-            background: white;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 0.75rem;
-            word-break: break-all;
-            display: none;
-        }
-
-        .code-display.show {
-            display: block;
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #34495E;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            opacity: 0;
-            transition: opacity 0.3s;
-            z-index: 1000;
-        }
-
-        .toast.show {
-            opacity: 1;
+        .setup-box a {
+            color: #0d6efd;
         }
 
         @media (max-width: 600px) {
             .stats {
-                gap: 16px;
+                gap: 12px;
             }
             .stat-number {
-                font-size: 1.5rem;
+                font-size: 1.4rem;
             }
             .guest-item {
                 padding: 12px;
+            }
+            .guest-actions {
+                width: 100%;
+                justify-content: flex-end;
+                margin-top: 8px;
             }
         }
     </style>
@@ -307,7 +333,16 @@
             <h1>Panel de Invitados</h1>
             <p style="color: #666; font-size: 0.9rem;">Renovación de Votos — 31 Oct 2026</p>
 
+            <div class="sync-status">
+                <span class="sync-dot" id="syncDot"></span>
+                <span id="syncText">Conectando...</span>
+            </div>
+
             <div class="stats">
+                <div class="stat confirmed">
+                    <span class="stat-number" id="confirmedCount">0</span>
+                    <span class="stat-label">Confirmados</span>
+                </div>
                 <div class="stat invited">
                     <span class="stat-number" id="invitedCount">0</span>
                     <span class="stat-label">Invitados</span>
@@ -327,27 +362,34 @@
             </div>
         </header>
 
-        <div class="sync-section">
-            <div class="sync-title">Sincronizar con otro dispositivo</div>
-            <div class="sync-buttons">
-                <button class="sync-btn export" id="exportBtn">Copiar mi progreso</button>
-                <button class="sync-btn import" id="importBtn">Pegar progreso de Mari</button>
+        <div id="loadingState" class="loading">
+            <div class="loading-spinner"></div>
+            <p>Cargando lista de invitados...</p>
+        </div>
+
+        <div id="mainContent" class="hidden">
+            <input type="text" class="search-box" id="searchBox" placeholder="Buscar invitado...">
+
+            <div class="filters">
+                <button class="filter-btn active" data-filter="all">Todos</button>
+                <button class="filter-btn" data-filter="pending">Pendientes</button>
+                <button class="filter-btn" data-filter="invited">Ya invitados</button>
+                <button class="filter-btn" data-filter="confirmed">Confirmados</button>
             </div>
-            <div class="code-display" id="codeDisplay"></div>
+
+            <div class="guest-list" id="guestList"></div>
         </div>
-
-        <input type="text" class="search-box" id="searchBox" placeholder="Buscar invitado...">
-
-        <div class="filters">
-            <button class="filter-btn active" data-filter="all">Todos</button>
-            <button class="filter-btn" data-filter="pending">Pendientes</button>
-            <button class="filter-btn" data-filter="invited">Ya invitados</button>
-        </div>
-
-        <div class="guest-list" id="guestList"></div>
     </div>
 
     <script>
+        // ============================================
+        // CONFIGURACIÓN SUPABASE
+        // ============================================
+        const SUPABASE_URL = 'https://xptmxuhcasmqnlrcqvkz.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwdG14dWhjYXNtcW5scmNxdmt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ1NjkwMjMsImV4cCI6MjA1MDE0NTAyM30.placeholder';
+
+        // ============================================
+
         const guests = [
             "Ene", "Rodolfo", "David", "Anita", "Joaquín", "Luis", "Yolanda", "Diana",
             "Daya", "Emma", "Juanita", "David", "Johan", "Jake", "Daniel Ballesteros",
@@ -361,22 +403,107 @@
             "Andrea Del Valle", "Osqui", "Ricky", "Cata"
         ];
 
-        // Load invited status from localStorage
-        let invitedStatus = JSON.parse(localStorage.getItem('invitedGuests') || '{}');
+        // Status: 0 = pending, 1 = invited, 2 = confirmed
+        let guestStatus = {};
+        let supabase = null;
+        let channel = null;
 
-        function saveStatus() {
-            localStorage.setItem('invitedGuests', JSON.stringify(invitedStatus));
+        // Try to initialize Supabase
+        async function initSupabase() {
+            try {
+                if (SUPABASE_ANON_KEY.includes('placeholder')) {
+                    throw new Error('Supabase not configured');
+                }
+
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+                // Load initial data
+                const { data, error } = await supabase
+                    .from('guests')
+                    .select('*');
+
+                if (error) throw error;
+
+                // Convert to our format
+                data.forEach(row => {
+                    guestStatus[row.guest_index] = row.status;
+                });
+
+                // Subscribe to real-time changes
+                channel = supabase
+                    .channel('guests-changes')
+                    .on('postgres_changes',
+                        { event: '*', schema: 'public', table: 'guests' },
+                        (payload) => {
+                            if (payload.new) {
+                                guestStatus[payload.new.guest_index] = payload.new.status;
+                            }
+                            renderGuests(getCurrentFilter(), getSearchValue());
+                        }
+                    )
+                    .subscribe();
+
+                document.getElementById('syncDot').classList.add('connected');
+                document.getElementById('syncText').textContent = 'Sincronizado en tiempo real';
+
+            } catch (e) {
+                console.log('Using localStorage fallback:', e.message);
+                fallbackToLocalStorage();
+            }
+
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('mainContent').classList.remove('hidden');
+            renderGuests();
+        }
+
+        function fallbackToLocalStorage() {
+            const saved = localStorage.getItem('guestStatus');
+            if (saved) {
+                guestStatus = JSON.parse(saved);
+            }
+            document.getElementById('syncDot').classList.remove('connected');
+            document.getElementById('syncText').textContent = 'Guardado local (no sincronizado)';
+        }
+
+        async function saveStatus(index, status) {
+            guestStatus[index] = status;
+
+            if (supabase) {
+                try {
+                    await supabase
+                        .from('guests')
+                        .upsert({ guest_index: index, status: status }, { onConflict: 'guest_index' });
+                } catch (e) {
+                    console.error('Error saving to Supabase:', e);
+                }
+            } else {
+                localStorage.setItem('guestStatus', JSON.stringify(guestStatus));
+            }
+        }
+
+        function getCurrentFilter() {
+            return document.querySelector('.filter-btn.active')?.dataset.filter || 'all';
+        }
+
+        function getSearchValue() {
+            return document.getElementById('searchBox')?.value || '';
         }
 
         function updateStats() {
-            const invited = Object.values(invitedStatus).filter(v => v).length;
-            const total = guests.length;
-            const pending = total - invited;
+            let confirmed = 0, invited = 0, pending = 0;
 
+            guests.forEach((_, index) => {
+                const status = guestStatus[index] || 0;
+                if (status === 2) confirmed++;
+                else if (status === 1) invited++;
+                else pending++;
+            });
+
+            document.getElementById('confirmedCount').textContent = confirmed;
             document.getElementById('invitedCount').textContent = invited;
             document.getElementById('pendingCount').textContent = pending;
-            document.getElementById('totalCount').textContent = total;
-            document.getElementById('progressFill').style.width = `${(invited / total) * 100}%`;
+            document.getElementById('totalCount').textContent = guests.length;
+            document.getElementById('progressFill').style.width = `${((confirmed + invited) / guests.length) * 100}%`;
         }
 
         function renderGuests(filter = 'all', search = '') {
@@ -384,22 +511,37 @@
             list.innerHTML = '';
 
             guests.forEach((name, index) => {
-                const isInvited = invitedStatus[index] || false;
+                const status = guestStatus[index] || 0; // 0=pending, 1=invited, 2=confirmed
+
                 const matchesFilter = filter === 'all' ||
-                    (filter === 'invited' && isInvited) ||
-                    (filter === 'pending' && !isInvited);
+                    (filter === 'confirmed' && status === 2) ||
+                    (filter === 'invited' && status === 1) ||
+                    (filter === 'pending' && status === 0);
+
                 const matchesSearch = name.toLowerCase().includes(search.toLowerCase());
 
                 if (!matchesFilter || !matchesSearch) return;
 
+                const statusClass = status === 2 ? 'confirmed' : (status === 1 ? 'invited' : '');
+
+                let actions = '';
+                if (status === 0) {
+                    actions = `<button class="action-btn invite" data-index="${index}" data-action="invite">Invitado ✓</button>`;
+                } else if (status === 1) {
+                    actions = `
+                        <button class="action-btn confirm" data-index="${index}" data-action="confirm">Confirmó ✓</button>
+                        <button class="action-btn undo" data-index="${index}" data-action="undo">↩</button>
+                    `;
+                } else {
+                    actions = `<button class="action-btn undo" data-index="${index}" data-action="uninvite">Desmarcar</button>`;
+                }
+
                 const item = document.createElement('div');
-                item.className = `guest-item ${isInvited ? 'invited' : ''}`;
+                item.className = `guest-item ${statusClass}`;
                 item.innerHTML = `
                     <span class="guest-number">${index + 1}</span>
                     <span class="guest-name">${name}</span>
-                    <button class="invite-btn ${isInvited ? 'mark-pending' : 'mark-invited'}" data-index="${index}">
-                        ${isInvited ? 'Desmarcar' : 'Invitado'}
-                    </button>
+                    <div class="guest-actions">${actions}</div>
                 `;
                 list.appendChild(item);
             });
@@ -408,15 +550,19 @@
         }
 
         // Event listeners
-        document.getElementById('guestList').addEventListener('click', (e) => {
-            if (e.target.classList.contains('invite-btn')) {
+        document.getElementById('guestList').addEventListener('click', async (e) => {
+            if (e.target.classList.contains('action-btn')) {
                 const index = parseInt(e.target.dataset.index);
-                invitedStatus[index] = !invitedStatus[index];
-                saveStatus();
+                const action = e.target.dataset.action;
 
-                const activeFilter = document.querySelector('.filter-btn.active').dataset.filter;
-                const searchValue = document.getElementById('searchBox').value;
-                renderGuests(activeFilter, searchValue);
+                let newStatus;
+                if (action === 'invite') newStatus = 1;
+                else if (action === 'confirm') newStatus = 2;
+                else if (action === 'undo') newStatus = 0;
+                else if (action === 'uninvite') newStatus = 0;
+
+                await saveStatus(index, newStatus);
+                renderGuests(getCurrentFilter(), getSearchValue());
             }
         });
 
@@ -424,80 +570,16 @@
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                const searchValue = document.getElementById('searchBox').value;
-                renderGuests(btn.dataset.filter, searchValue);
+                renderGuests(btn.dataset.filter, getSearchValue());
             });
         });
 
         document.getElementById('searchBox').addEventListener('input', (e) => {
-            const activeFilter = document.querySelector('.filter-btn.active').dataset.filter;
-            renderGuests(activeFilter, e.target.value);
+            renderGuests(getCurrentFilter(), e.target.value);
         });
 
-        // Initial render
-        renderGuests();
-
-        // Toast notification
-        function showToast(message) {
-            let toast = document.querySelector('.toast');
-            if (!toast) {
-                toast = document.createElement('div');
-                toast.className = 'toast';
-                document.body.appendChild(toast);
-            }
-            toast.textContent = message;
-            toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 3000);
-        }
-
-        // Export functionality
-        document.getElementById('exportBtn').addEventListener('click', () => {
-            const code = btoa(JSON.stringify(invitedStatus));
-            navigator.clipboard.writeText(code).then(() => {
-                showToast('Progreso copiado. Envíaselo a Mari por WhatsApp.');
-            }).catch(() => {
-                const display = document.getElementById('codeDisplay');
-                display.textContent = code;
-                display.classList.add('show');
-                showToast('Copia este código y envíaselo a Mari');
-            });
-        });
-
-        // Import functionality
-        document.getElementById('importBtn').addEventListener('click', async () => {
-            try {
-                const code = await navigator.clipboard.readText();
-                const imported = JSON.parse(atob(code));
-
-                // Merge: mark as invited if either has it marked
-                Object.keys(imported).forEach(key => {
-                    if (imported[key]) {
-                        invitedStatus[key] = true;
-                    }
-                });
-
-                saveStatus();
-                renderGuests();
-                showToast('Progreso sincronizado correctamente');
-            } catch (e) {
-                const code = prompt('Pega el código que te envió Mari:');
-                if (code) {
-                    try {
-                        const imported = JSON.parse(atob(code));
-                        Object.keys(imported).forEach(key => {
-                            if (imported[key]) {
-                                invitedStatus[key] = true;
-                            }
-                        });
-                        saveStatus();
-                        renderGuests();
-                        showToast('Progreso sincronizado correctamente');
-                    } catch (e2) {
-                        showToast('Código inválido. Verifica que esté completo.');
-                    }
-                }
-            }
-        });
+        // Initialize
+        initSupabase();
     </script>
 </body>
 </html>
