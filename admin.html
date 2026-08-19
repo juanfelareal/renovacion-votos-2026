@@ -411,23 +411,29 @@
         // Try to initialize Supabase
         async function initSupabase() {
             try {
-                if (SUPABASE_ANON_KEY.includes('placeholder')) {
-                    throw new Error('Supabase not configured');
+                // Check if Supabase SDK loaded
+                if (!window.supabase) {
+                    throw new Error('Supabase SDK not loaded');
                 }
 
                 supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-                // Load initial data
-                const { data, error } = await supabase
-                    .from('guests')
-                    .select('*');
+                // Load initial data with timeout
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Timeout')), 5000)
+                );
+
+                const fetchPromise = supabase.from('guests').select('*');
+                const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
                 if (error) throw error;
 
                 // Convert to our format
-                data.forEach(row => {
-                    guestStatus[row.guest_index] = row.status;
-                });
+                if (data) {
+                    data.forEach(row => {
+                        guestStatus[row.guest_index] = row.status;
+                    });
+                }
 
                 // Subscribe to real-time changes
                 channel = supabase
@@ -447,7 +453,7 @@
                 document.getElementById('syncText').textContent = 'Sincronizado en tiempo real';
 
             } catch (e) {
-                console.log('Using localStorage fallback:', e.message);
+                console.error('Supabase error:', e);
                 fallbackToLocalStorage();
             }
 
