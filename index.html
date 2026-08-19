@@ -18,13 +18,14 @@
 
     <style>
         :root {
-            --color-bg: #F7F9FB;
+            --color-bg: #FAF9F7;
             --color-bg-warm: #F5F3F0;
-            --color-text: #2C3E50;
-            --color-text-light: #5D6D7E;
-            --color-accent: #7B8FA1;
-            --color-accent-dark: #34495E;
-            --color-border: #D5DBDB;
+            --color-text: #1a1a1a;
+            --color-text-light: #666666;
+            --color-accent: #8B7355;
+            --color-accent-dark: #2C2C2C;
+            --color-border: #E0DCD5;
+            --color-gold: #C9A961;
             --font-serif: 'Cormorant Garamond', Georgia, serif;
             --font-sans: 'Inter', -apple-system, sans-serif;
         }
@@ -45,18 +46,24 @@
             color: var(--color-text);
             line-height: 1.7;
             font-weight: 300;
+            overflow-x: hidden;
         }
 
         /* Hero Section */
         .hero {
             min-height: 100vh;
+            min-height: 100dvh;
+            width: 100vw;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             text-align: center;
             padding: 60px 24px;
-            background: linear-gradient(180deg, #E8EDF2 0%, var(--color-bg) 100%);
+            background:
+                radial-gradient(ellipse at 30% 20%, rgba(201, 169, 97, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(139, 115, 85, 0.06) 0%, transparent 50%),
+                linear-gradient(180deg, #F8F6F3 0%, var(--color-bg) 50%, #F5F3F0 100%);
             position: relative;
         }
 
@@ -68,7 +75,20 @@
             right: 0;
             bottom: 0;
             background: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-            opacity: 0.03;
+            opacity: 0.02;
+            pointer-events: none;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            border: 1px solid rgba(201, 169, 97, 0.15);
+            border-radius: 50%;
             pointer-events: none;
         }
 
@@ -80,20 +100,20 @@
 
         .names {
             font-family: var(--font-serif);
-            font-size: clamp(2.5rem, 8vw, 4.5rem);
+            font-size: clamp(3rem, 10vw, 5.5rem);
             font-weight: 400;
-            letter-spacing: 0.02em;
-            margin-bottom: 8px;
-            color: var(--color-accent-dark);
+            letter-spacing: 0.08em;
+            margin-bottom: 16px;
+            color: var(--color-text);
         }
 
         .names span {
             font-family: var(--font-serif);
             font-weight: 300;
-            font-size: 0.6em;
+            font-size: 0.5em;
             vertical-align: middle;
-            margin: 0 8px;
-            color: var(--color-accent);
+            margin: 0 16px;
+            color: var(--color-gold);
         }
 
         /* Hide Pinterest account name */
@@ -125,28 +145,54 @@
         }
 
         .detail-label {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             text-transform: uppercase;
-            letter-spacing: 0.2em;
-            color: var(--color-accent);
+            letter-spacing: 0.25em;
+            color: var(--color-gold);
+            font-weight: 500;
         }
 
         .detail-value {
             font-family: var(--font-serif);
-            font-size: 1.3rem;
+            font-size: 1.4rem;
             color: var(--color-text);
+            font-weight: 400;
         }
 
         .dress-code {
             display: inline-block;
-            padding: 12px 28px;
-            border: 1px solid var(--color-border);
-            border-radius: 50px;
-            font-size: 0.75rem;
+            padding: 16px 36px;
+            border: 1px solid var(--color-gold);
+            border-radius: 0;
+            font-size: 0.7rem;
             text-transform: uppercase;
-            letter-spacing: 0.15em;
-            color: var(--color-text-light);
-            background: rgba(255,255,255,0.5);
+            letter-spacing: 0.2em;
+            color: var(--color-text);
+            background: transparent;
+            position: relative;
+        }
+
+        .dress-code::before,
+        .dress-code::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border: 1px solid var(--color-gold);
+        }
+
+        .dress-code::before {
+            top: -4px;
+            left: -4px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .dress-code::after {
+            bottom: -4px;
+            right: -4px;
+            border-left: none;
+            border-top: none;
         }
 
         .scroll-hint {
@@ -157,10 +203,10 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 8px;
-            color: var(--color-accent);
-            font-size: 0.7rem;
-            letter-spacing: 0.1em;
+            gap: 12px;
+            color: var(--color-gold);
+            font-size: 0.65rem;
+            letter-spacing: 0.2em;
             text-transform: uppercase;
             animation: float 2s ease-in-out infinite;
         }
@@ -171,34 +217,37 @@
         }
 
         .scroll-hint svg {
-            width: 20px;
-            height: 20px;
+            width: 24px;
+            height: 24px;
+            stroke-width: 1;
         }
 
         /* Sections */
         section {
-            padding: 80px 24px;
+            padding: 100px 24px;
             max-width: 800px;
             margin: 0 auto;
         }
 
         .section-title {
             font-family: var(--font-serif);
-            font-size: clamp(1.8rem, 5vw, 2.5rem);
+            font-size: clamp(2rem, 5vw, 2.8rem);
             font-weight: 400;
             text-align: center;
             margin-bottom: 16px;
-            color: var(--color-accent-dark);
+            color: var(--color-text);
+            letter-spacing: 0.05em;
         }
 
         .section-subtitle {
             text-align: center;
             color: var(--color-text-light);
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             margin-bottom: 48px;
             max-width: 500px;
             margin-left: auto;
             margin-right: auto;
+            letter-spacing: 0.02em;
         }
 
         /* Micelio Quote */
@@ -267,16 +316,29 @@
 
         /* RSVP Form */
         .rsvp-section {
-            background: linear-gradient(180deg, var(--color-bg) 0%, #E8EDF2 100%);
+            background: linear-gradient(180deg, var(--color-bg) 0%, #F5F3F0 100%);
         }
 
         .rsvp-form {
-            max-width: 480px;
+            max-width: 500px;
             margin: 0 auto;
             background: white;
-            padding: 48px 40px;
-            border-radius: 20px;
-            box-shadow: 0 4px 40px rgba(0,0,0,0.06);
+            padding: 56px 48px;
+            border-radius: 0;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+            border: 1px solid var(--color-border);
+            position: relative;
+        }
+
+        .rsvp-form::before {
+            content: '';
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            right: 16px;
+            bottom: 16px;
+            border: 1px solid var(--color-border);
+            pointer-events: none;
         }
 
         .form-group {
@@ -285,31 +347,32 @@
 
         .form-group label {
             display: block;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.15em;
             color: var(--color-text-light);
-            margin-bottom: 10px;
+            margin-bottom: 12px;
+            font-weight: 500;
         }
 
         .form-group input[type="text"],
         .form-group textarea {
             width: 100%;
-            padding: 14px 18px;
+            padding: 16px 20px;
             border: 1px solid var(--color-border);
-            border-radius: 10px;
+            border-radius: 0;
             font-family: var(--font-sans);
             font-size: 1rem;
             color: var(--color-text);
-            transition: border-color 0.2s, box-shadow 0.2s;
+            transition: border-color 0.3s, box-shadow 0.3s;
             background: var(--color-bg);
         }
 
         .form-group input:focus,
         .form-group textarea:focus {
             outline: none;
-            border-color: var(--color-accent);
-            box-shadow: 0 0 0 3px rgba(123, 143, 161, 0.1);
+            border-color: var(--color-gold);
+            box-shadow: 0 0 0 3px rgba(201, 169, 97, 0.1);
         }
 
         .form-group textarea {
@@ -337,72 +400,78 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 16px 20px;
+            padding: 18px 24px;
             border: 1px solid var(--color-border);
-            border-radius: 10px;
+            border-radius: 0;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s;
             text-transform: none;
-            letter-spacing: 0;
-            font-size: 0.95rem;
+            letter-spacing: 0.02em;
+            font-size: 0.9rem;
             background: var(--color-bg);
         }
 
         .radio-option input:checked + label {
-            border-color: var(--color-accent-dark);
-            background: var(--color-accent-dark);
+            border-color: var(--color-gold);
+            background: var(--color-text);
             color: white;
         }
 
         .radio-option label:hover {
-            border-color: var(--color-accent);
+            border-color: var(--color-gold);
         }
 
         .invitation-note {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--color-text-light);
             text-align: center;
-            padding: 16px 20px;
-            background: var(--color-bg);
-            border-radius: 10px;
-            border-left: 3px solid var(--color-accent);
-            margin-bottom: 28px;
+            padding: 20px 24px;
+            background: transparent;
+            border-radius: 0;
+            border: 1px solid var(--color-border);
+            border-left: 3px solid var(--color-gold);
+            margin-bottom: 32px;
             font-style: italic;
+            line-height: 1.6;
         }
 
         .submit-btn {
             width: 100%;
-            padding: 18px 32px;
-            background: var(--color-accent-dark);
+            padding: 20px 36px;
+            background: var(--color-text);
             color: white;
             border: none;
-            border-radius: 50px;
+            border-radius: 0;
             font-family: var(--font-sans);
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             font-weight: 500;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: all 0.3s;
         }
 
         .submit-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 20px rgba(52, 73, 94, 0.3);
+            background: var(--color-gold);
+            color: var(--color-text);
         }
 
         /* Footer */
         footer {
             text-align: center;
-            padding: 60px 24px;
-            color: var(--color-accent);
-            font-size: 0.8rem;
+            padding: 80px 24px;
+            color: var(--color-text-light);
+            font-size: 0.75rem;
+            letter-spacing: 0.1em;
+            background: var(--color-bg-warm);
         }
 
         footer .names-footer {
             font-family: var(--font-serif);
-            font-size: 1.5rem;
+            font-size: 2rem;
             color: var(--color-text);
-            margin-bottom: 8px;
+            margin-bottom: 12px;
+            letter-spacing: 0.1em;
         }
 
         /* Success Message */
