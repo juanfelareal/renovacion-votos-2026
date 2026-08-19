@@ -405,7 +405,7 @@
 
         // Status: 0 = pending, 1 = invited, 2 = confirmed
         let guestStatus = {};
-        let supabase = null;
+        let sb = null;  // Supabase client
         let channel = null;
 
         // Try to initialize Supabase
@@ -416,14 +416,14 @@
                     throw new Error('Supabase SDK not loaded');
                 }
 
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
                 // Load initial data with timeout
                 const timeoutPromise = new Promise((_, reject) =>
                     setTimeout(() => reject(new Error('Timeout')), 5000)
                 );
 
-                const fetchPromise = supabase.from('guests').select('*');
+                const fetchPromise = sb.from('guests').select('*');
                 const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
                 if (error) throw error;
@@ -436,7 +436,7 @@
                 }
 
                 // Subscribe to real-time changes
-                channel = supabase
+                channel = sb
                     .channel('guests-changes')
                     .on('postgres_changes',
                         { event: '*', schema: 'public', table: 'guests' },
@@ -474,9 +474,9 @@
         async function saveStatus(index, status) {
             guestStatus[index] = status;
 
-            if (supabase) {
+            if (sb) {
                 try {
-                    await supabase
+                    await sb
                         .from('guests')
                         .upsert({ guest_index: index, status: status }, { onConflict: 'guest_index' });
                 } catch (e) {
