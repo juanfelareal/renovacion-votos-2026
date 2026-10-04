@@ -315,6 +315,23 @@
             border: 1px solid #e6b0aa;
         }
 
+        .action-btn.reminder {
+            background: white;
+            color: #8e44ad;
+            border: 1px dashed #c39bd3;
+        }
+
+        .action-btn.reminder.sent {
+            background: #F4ECF7;
+            border-style: solid;
+        }
+
+        .reminder-summary {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: #8e44ad;
+        }
+
         .action-btn.undo {
             background: #e0e0e0;
             color: #666;
@@ -440,6 +457,8 @@
             <div class="progress-bar">
                 <div class="progress-fill" id="progressFill" style="width: 0%"></div>
             </div>
+
+            <p class="reminder-summary">📩 Mensaje de confirmación enviado: <strong id="reminderCount">0</strong> de <span id="reminderTotal">0</span></p>
         </header>
 
         <div id="loadingState" class="loading">
@@ -456,6 +475,7 @@
                 <button class="filter-btn" data-filter="invited">Ya invitados</button>
                 <button class="filter-btn" data-filter="confirmed">Confirmados</button>
                 <button class="filter-btn" data-filter="declined">No asisten</button>
+                <button class="filter-btn" data-filter="reminder">Falta mensaje</button>
             </div>
 
             <div id="rsvpInbox"></div>
@@ -488,6 +508,7 @@
 
         // Status: 0 = pending, 1 = invited, 2 = confirmed, 3 = declined
         let guestStatus = {};
+        let reminderSent = {};  // Mensaje de confirmación de octubre enviado
         let sb = null;  // Supabase client
         let channel = null;
         let rsvps = [];  // Confirmaciones del formulario de la invitación
@@ -607,6 +628,7 @@
                 if (data) {
                     data.forEach(row => {
                         guestStatus[row.guest_index] = row.status;
+                        reminderSent[row.guest_index] = !!row.reminder_sent;
                     });
                 }
 
@@ -618,6 +640,7 @@
                         (payload) => {
                             if (payload.new) {
                                 guestStatus[payload.new.guest_index] = payload.new.status;
+                                reminderSent[payload.new.guest_index] = !!payload.new.reminder_sent;
                             }
                             renderGuests(getCurrentFilter(), getSearchValue());
                         }
@@ -676,6 +699,18 @@
             }
         }
 
+        async function saveReminder(index, sent) {
+            reminderSent[index] = sent;
+            if (!sb) return;
+            try {
+                await sb
+                    .from('guests')
+                    .upsert({ guest_index: index, status: guestStatus[index] || 0, reminder_sent: sent }, { onConflict: 'guest_index' });
+            } catch (e) {
+                console.error('Error saving to Supabase:', e);
+            }
+        }
+
         function getCurrentFilter() {
             return document.querySelector('.filter-btn.active')?.dataset.filter || 'all';
         }
@@ -704,6 +739,9 @@
             document.getElementById('declinedCount').textContent = declined;
             document.getElementById('totalCount').textContent = active;
             document.getElementById('progressFill').style.width = `${active ? ((confirmed + invited) / active) * 100 : 0}%`;
+            document.getElementById('reminderCount').textContent =
+                guests.filter((_, index) => (guestStatus[index] || 0) !== 3 && reminderSent[index]).length;
+            document.getElementById('reminderTotal').textContent = active;
         }
 
         function renderGuests(filter = 'all', search = '') {
@@ -717,7 +755,8 @@
                     (filter === 'confirmed' && status === 2) ||
                     (filter === 'invited' && status === 1) ||
                     (filter === 'pending' && status === 0) ||
-                    (filter === 'declined' && status === 3);
+                    (filter === 'declined' && status === 3) ||
+                    (filter === 'reminder' && status !== 3 && !reminderSent[index]);
 
                 const matchesSearch = name.toLowerCase().includes(search.toLowerCase());
 
@@ -739,6 +778,12 @@
                     actions = `${declineBtn}<button class="action-btn undo" data-index="${index}" data-action="uninvite">Desmarcar</button>`;
                 } else {
                     actions = `<button class="action-btn undo" data-index="${index}" data-action="uninvite">Desmarcar</button>`;
+                }
+
+                // A quienes no vienen ya no se les manda el mensaje
+                if (status !== 3) {
+                    const sent = reminderSent[index];
+                    actions = `<button class="action-btn reminder ${sent ? 'sent' : ''}" data-index="${index}" data-action="reminder">${sent ? '✓ Mensaje enviado' : '📩 Mensaje'}</button>` + actions;
                 }
 
                 const item = document.createElement('div');
@@ -769,6 +814,12 @@
             if (e.target.classList.contains('action-btn')) {
                 const index = parseInt(e.target.dataset.index);
                 const action = e.target.dataset.action;
+
+                if (action === 'reminder') {
+                    await saveReminder(index, !reminderSent[index]);
+                    renderGuests(getCurrentFilter(), getSearchValue());
+                    return;
+                }
 
                 let newStatus;
                 if (action === 'invite') newStatus = 1;
