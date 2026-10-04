@@ -100,6 +100,7 @@
         .stat.confirmed .stat-number { color: #27ae60; }
         .stat.invited .stat-number { color: #3498db; }
         .stat.pending .stat-number { color: #e67e22; }
+        .stat.declined .stat-number { color: #95a5a6; }
         .stat.total .stat-number { color: #34495E; }
 
         .filters {
@@ -173,6 +174,17 @@
         .guest-item.confirmed {
             background: #E8F5E9;
             border-left: 3px solid #27ae60;
+        }
+
+        .guest-item.declined {
+            background: #F4F6F7;
+            border-left: 3px solid #95a5a6;
+            opacity: 0.65;
+        }
+
+        .guest-item.declined .guest-name {
+            text-decoration: line-through;
+            color: #7f8c8d;
         }
 
         .guest-number {
@@ -297,6 +309,12 @@
             color: white;
         }
 
+        .action-btn.decline {
+            background: white;
+            color: #c0392b;
+            border: 1px solid #e6b0aa;
+        }
+
         .action-btn.undo {
             background: #e0e0e0;
             color: #666;
@@ -409,6 +427,10 @@
                     <span class="stat-number" id="pendingCount">0</span>
                     <span class="stat-label">Pendientes</span>
                 </div>
+                <div class="stat declined">
+                    <span class="stat-number" id="declinedCount">0</span>
+                    <span class="stat-label">No asisten</span>
+                </div>
                 <div class="stat total">
                     <span class="stat-number" id="totalCount">0</span>
                     <span class="stat-label">Total</span>
@@ -433,6 +455,7 @@
                 <button class="filter-btn" data-filter="pending">Pendientes</button>
                 <button class="filter-btn" data-filter="invited">Ya invitados</button>
                 <button class="filter-btn" data-filter="confirmed">Confirmados</button>
+                <button class="filter-btn" data-filter="declined">No asisten</button>
             </div>
 
             <div id="rsvpInbox"></div>
@@ -463,7 +486,7 @@
             "Andrea Del Valle", "Osqui", "Ricky", "Cata"
         ];
 
-        // Status: 0 = pending, 1 = invited, 2 = confirmed
+        // Status: 0 = pending, 1 = invited, 2 = confirmed, 3 = declined
         let guestStatus = {};
         let sb = null;  // Supabase client
         let channel = null;
@@ -493,12 +516,12 @@
         async function assignRsvp(rsvp, index) {
             rsvp.guest_index = index;
             await sb.from('rsvps').update({ guest_index: index }).eq('id', rsvp.id);
-            await saveStatus(index, 2);
+            await saveStatus(index, rsvp.asistencia === ATTENDING ? 2 : 3);
         }
 
         async function processRsvps() {
             for (const rsvp of rsvps) {
-                if (rsvp.guest_index !== null || rsvp.asistencia !== ATTENDING) continue;
+                if (rsvp.guest_index !== null) continue;
                 const index = findGuestIndex(rsvp.nombre);
                 if (index !== null) await assignRsvp(rsvp, index);
             }
@@ -517,30 +540,34 @@
 
         function renderRsvpInbox() {
             const box = document.getElementById('rsvpInbox');
-            const unassigned = rsvps.filter(r => r.asistencia === ATTENDING && r.guest_index === null);
-            const declined = rsvps.filter(r => r.asistencia !== ATTENDING);
+            const unassigned = rsvps.filter(r => r.guest_index === null);
+            const attending = unassigned.filter(r => r.asistencia === ATTENDING);
+            const declined = unassigned.filter(r => r.asistencia !== ATTENDING);
             const options = guests.map((name, index) =>
                 `<option value="${index}">${index + 1}. ${escapeHtml(name)}</option>`).join('');
 
+            const rows = (list, btnClass, btnText) => list.map(r => `
+                <div class="rsvp-row">
+                    <span class="rsvp-name">${escapeHtml(r.nombre)}${r.restricciones ? `<span class="guest-note">${escapeHtml(r.restricciones)}</span>` : ''}</span>
+                    <select data-rsvp="${r.id}"><option value="">¿Quién es?</option>${options}</select>
+                    <button class="action-btn ${btnClass}" data-assign="${r.id}">${btnText}</button>
+                </div>`).join('');
+
             let html = '';
-            if (unassigned.length) {
+            if (attending.length) {
                 html += `
                     <div class="rsvp-inbox">
-                        <h3>Confirmaron y falta asignarlos (${unassigned.length})</h3>
+                        <h3>Confirmaron y falta asignarlos (${attending.length})</h3>
                         <p>Su nombre no coincide con uno solo de la lista. Elige quién es.</p>
-                        ${unassigned.map(r => `
-                            <div class="rsvp-row">
-                                <span class="rsvp-name">${escapeHtml(r.nombre)}${r.restricciones ? `<span class="guest-note">${escapeHtml(r.restricciones)}</span>` : ''}</span>
-                                <select data-rsvp="${r.id}"><option value="">¿Quién es?</option>${options}</select>
-                                <button class="action-btn confirm" data-assign="${r.id}">Asignar ✓</button>
-                            </div>`).join('')}
+                        ${rows(attending, 'confirm', 'Asignar ✓')}
                     </div>`;
             }
             if (declined.length) {
                 html += `
                     <div class="rsvp-inbox rsvp-declined">
-                        <h3>No podrán asistir (${declined.length})</h3>
-                        ${declined.map(r => `<div class="rsvp-row"><span class="rsvp-name">${escapeHtml(r.nombre)}</span></div>`).join('')}
+                        <h3>Dijeron que no vienen y falta asignarlos (${declined.length})</h3>
+                        <p>Elige quién es para marcarlo como "No asistirá".</p>
+                        ${rows(declined, 'decline', 'Asignar')}
                     </div>`;
             }
             box.innerHTML = html;
@@ -658,20 +685,25 @@
         }
 
         function updateStats() {
-            let confirmed = 0, invited = 0, pending = 0;
+            let confirmed = 0, invited = 0, pending = 0, declined = 0;
 
             guests.forEach((_, index) => {
                 const status = guestStatus[index] || 0;
                 if (status === 2) confirmed++;
                 else if (status === 1) invited++;
+                else if (status === 3) declined++;
                 else pending++;
             });
+
+            // El total y el progreso ya no cuentan a quienes no vienen
+            const active = guests.length - declined;
 
             document.getElementById('confirmedCount').textContent = confirmed;
             document.getElementById('invitedCount').textContent = invited;
             document.getElementById('pendingCount').textContent = pending;
-            document.getElementById('totalCount').textContent = guests.length;
-            document.getElementById('progressFill').style.width = `${((confirmed + invited) / guests.length) * 100}%`;
+            document.getElementById('declinedCount').textContent = declined;
+            document.getElementById('totalCount').textContent = active;
+            document.getElementById('progressFill').style.width = `${active ? ((confirmed + invited) / active) * 100 : 0}%`;
         }
 
         function renderGuests(filter = 'all', search = '') {
@@ -679,27 +711,32 @@
             list.innerHTML = '';
 
             guests.forEach((name, index) => {
-                const status = guestStatus[index] || 0; // 0=pending, 1=invited, 2=confirmed
+                const status = guestStatus[index] || 0; // 0=pending, 1=invited, 2=confirmed, 3=declined
 
                 const matchesFilter = filter === 'all' ||
                     (filter === 'confirmed' && status === 2) ||
                     (filter === 'invited' && status === 1) ||
-                    (filter === 'pending' && status === 0);
+                    (filter === 'pending' && status === 0) ||
+                    (filter === 'declined' && status === 3);
 
                 const matchesSearch = name.toLowerCase().includes(search.toLowerCase());
 
                 if (!matchesFilter || !matchesSearch) return;
 
-                const statusClass = status === 2 ? 'confirmed' : (status === 1 ? 'invited' : '');
+                const statusClass = ['', 'invited', 'confirmed', 'declined'][status] || '';
+                const declineBtn = `<button class="action-btn decline" data-index="${index}" data-action="decline">No asistirá</button>`;
 
                 let actions = '';
                 if (status === 0) {
-                    actions = `<button class="action-btn invite" data-index="${index}" data-action="invite">Invitado ✓</button>`;
+                    actions = `<button class="action-btn invite" data-index="${index}" data-action="invite">Invitado ✓</button>${declineBtn}`;
                 } else if (status === 1) {
                     actions = `
                         <button class="action-btn confirm" data-index="${index}" data-action="confirm">Confirmó ✓</button>
+                        ${declineBtn}
                         <button class="action-btn undo" data-index="${index}" data-action="undo">↩</button>
                     `;
+                } else if (status === 2) {
+                    actions = `${declineBtn}<button class="action-btn undo" data-index="${index}" data-action="uninvite">Desmarcar</button>`;
                 } else {
                     actions = `<button class="action-btn undo" data-index="${index}" data-action="uninvite">Desmarcar</button>`;
                 }
@@ -724,7 +761,7 @@
             if (!own.length) return '';
             const last = own[own.length - 1];
             const restricciones = own.map(r => r.restricciones).filter(Boolean).join(' · ');
-            return `<span class="guest-note">Confirmó como "${escapeHtml(last.nombre)}"${restricciones ? ` · 🍽 ${escapeHtml(restricciones)}` : ''}</span>`;
+            return `<span class="guest-note">Respondió como "${escapeHtml(last.nombre)}"${restricciones ? ` · 🍽 ${escapeHtml(restricciones)}` : ''}</span>`;
         }
 
         // Event listeners
@@ -738,6 +775,7 @@
                 else if (action === 'confirm') newStatus = 2;
                 else if (action === 'undo') newStatus = 0;
                 else if (action === 'uninvite') newStatus = 0;
+                else if (action === 'decline') newStatus = 3;
 
                 await saveStatus(index, newStatus);
                 renderGuests(getCurrentFilter(), getSearchValue());
