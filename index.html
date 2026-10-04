@@ -588,6 +588,27 @@
         const form = document.getElementById('rsvpForm');
         const successMessage = document.getElementById('successMessage');
 
+        // Copia de la confirmación en Supabase para que el panel la marque sola
+        const SUPABASE_URL = 'https://egmsjpyrpbuefyaisyow.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbXNqcHlycGJ1ZWZ5YWlzeW93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxMDU2NzYsImV4cCI6MjEwMjY4MTY3Nn0.UQzV5EBwdZa9wFmtuHTsN8mIhs7G9BtmSM7d6cQeUso';
+
+        function saveRsvp(formData) {
+            return fetch(`${SUPABASE_URL}/rest/v1/rsvps`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({
+                    nombre: formData.get('nombre').trim(),
+                    asistencia: formData.get('asistencia'),
+                    restricciones: formData.get('restricciones').trim() || null
+                })
+            }).catch(err => console.error('Supabase error:', err));
+        }
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -597,6 +618,7 @@
 
             try {
                 const formData = new FormData(form);
+                saveRsvp(formData);
                 const response = await fetch(form.action, {
                     method: 'POST',
                     body: formData,

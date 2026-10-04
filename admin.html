@@ -209,6 +209,64 @@
             color: #27ae60;
         }
 
+        .guest-note {
+            display: block;
+            font-size: 0.75rem;
+            color: #7f8c8d;
+        }
+
+        .rsvp-inbox {
+            background: #fff8e1;
+            border: 1px solid #f5d77a;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .rsvp-inbox h3 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .rsvp-inbox p {
+            font-size: 0.75rem;
+            color: #7f6a2a;
+            margin-bottom: 12px;
+        }
+
+        .rsvp-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 8px 0;
+            border-top: 1px solid #f5e3a8;
+            font-size: 0.85rem;
+        }
+
+        .rsvp-row .rsvp-name {
+            flex: 1;
+            min-width: 140px;
+        }
+
+        .rsvp-row select {
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.8rem;
+        }
+
+        .rsvp-declined {
+            background: #f4f6f7;
+            border-color: #d5dbdb;
+        }
+
+        .rsvp-declined .rsvp-row {
+            border-color: #e5e8e8;
+        }
+
         .guest-actions {
             display: flex;
             gap: 6px;
@@ -377,6 +435,8 @@
                 <button class="filter-btn" data-filter="confirmed">Confirmados</button>
             </div>
 
+            <div id="rsvpInbox"></div>
+
             <div class="guest-list" id="guestList"></div>
         </div>
     </div>
@@ -407,6 +467,94 @@
         let guestStatus = {};
         let sb = null;  // Supabase client
         let channel = null;
+        let rsvps = [];  // Confirmaciones del formulario de la invitación
+
+        const ATTENDING = 'Sí, asistiré';
+
+        const normalizeWords = (s) => s
+            .normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .toLowerCase().replace(/[^a-z\s]/g, ' ')
+            .split(/\s+/).filter(Boolean);
+
+        // Busca al invitado cuyo nombre corto calza con el nombre del formulario
+        // ("Lau Martínez" ↔ "Laura Martínez"). Si hay empate (dos "David"), no adivina.
+        function findGuestIndex(nombre) {
+            const words = normalizeWords(nombre);
+            let best = [], bestScore = 0;
+            guests.forEach((name, index) => {
+                const tokens = normalizeWords(name);
+                if (!tokens.every(t => words.some(w => w.startsWith(t)))) return;
+                if (tokens.length > bestScore) { best = [index]; bestScore = tokens.length; }
+                else if (tokens.length === bestScore) best.push(index);
+            });
+            return best.length === 1 ? best[0] : null;
+        }
+
+        async function assignRsvp(rsvp, index) {
+            rsvp.guest_index = index;
+            await sb.from('rsvps').update({ guest_index: index }).eq('id', rsvp.id);
+            await saveStatus(index, 2);
+        }
+
+        async function processRsvps() {
+            for (const rsvp of rsvps) {
+                if (rsvp.guest_index !== null || rsvp.asistencia !== ATTENDING) continue;
+                const index = findGuestIndex(rsvp.nombre);
+                if (index !== null) await assignRsvp(rsvp, index);
+            }
+        }
+
+        async function loadRsvps() {
+            const { data, error } = await sb.from('rsvps').select('*').order('created_at');
+            if (error) throw error;
+            rsvps = data || [];
+            await processRsvps();
+        }
+
+        const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        })[c]);
+
+        function renderRsvpInbox() {
+            const box = document.getElementById('rsvpInbox');
+            const unassigned = rsvps.filter(r => r.asistencia === ATTENDING && r.guest_index === null);
+            const declined = rsvps.filter(r => r.asistencia !== ATTENDING);
+            const options = guests.map((name, index) =>
+                `<option value="${index}">${index + 1}. ${escapeHtml(name)}</option>`).join('');
+
+            let html = '';
+            if (unassigned.length) {
+                html += `
+                    <div class="rsvp-inbox">
+                        <h3>Confirmaron y falta asignarlos (${unassigned.length})</h3>
+                        <p>Su nombre no coincide con uno solo de la lista. Elige quién es.</p>
+                        ${unassigned.map(r => `
+                            <div class="rsvp-row">
+                                <span class="rsvp-name">${escapeHtml(r.nombre)}${r.restricciones ? `<span class="guest-note">${escapeHtml(r.restricciones)}</span>` : ''}</span>
+                                <select data-rsvp="${r.id}"><option value="">¿Quién es?</option>${options}</select>
+                                <button class="action-btn confirm" data-assign="${r.id}">Asignar ✓</button>
+                            </div>`).join('')}
+                    </div>`;
+            }
+            if (declined.length) {
+                html += `
+                    <div class="rsvp-inbox rsvp-declined">
+                        <h3>No podrán asistir (${declined.length})</h3>
+                        ${declined.map(r => `<div class="rsvp-row"><span class="rsvp-name">${escapeHtml(r.nombre)}</span></div>`).join('')}
+                    </div>`;
+            }
+            box.innerHTML = html;
+        }
+
+        document.getElementById('rsvpInbox').addEventListener('click', async (e) => {
+            const id = e.target.dataset.assign;
+            if (!id) return;
+            const select = document.querySelector(`select[data-rsvp="${id}"]`);
+            if (select.value === '') return;
+            const rsvp = rsvps.find(r => String(r.id) === id);
+            await assignRsvp(rsvp, parseInt(select.value));
+            renderGuests(getCurrentFilter(), getSearchValue());
+        });
 
         // Try to initialize Supabase
         async function initSupabase() {
@@ -447,7 +595,21 @@
                             renderGuests(getCurrentFilter(), getSearchValue());
                         }
                     )
+                    .on('postgres_changes',
+                        { event: 'INSERT', schema: 'public', table: 'rsvps' },
+                        async (payload) => {
+                            rsvps.push(payload.new);
+                            await processRsvps();
+                            renderGuests(getCurrentFilter(), getSearchValue());
+                        }
+                    )
                     .subscribe();
+
+                try {
+                    await loadRsvps();
+                } catch (e) {
+                    console.error('Error loading rsvps:', e);
+                }
 
                 document.getElementById('syncDot').classList.add('connected');
                 document.getElementById('syncText').textContent = 'Sincronizado en tiempo real';
@@ -546,13 +708,23 @@
                 item.className = `guest-item ${statusClass}`;
                 item.innerHTML = `
                     <span class="guest-number">${index + 1}</span>
-                    <span class="guest-name">${name}</span>
+                    <span class="guest-name">${name}${guestNote(index)}</span>
                     <div class="guest-actions">${actions}</div>
                 `;
                 list.appendChild(item);
             });
 
             updateStats();
+            renderRsvpInbox();
+        }
+
+        // Nombre con el que confirmó y sus restricciones alimentarias
+        function guestNote(index) {
+            const own = rsvps.filter(r => r.guest_index === index);
+            if (!own.length) return '';
+            const last = own[own.length - 1];
+            const restricciones = own.map(r => r.restricciones).filter(Boolean).join(' · ');
+            return `<span class="guest-note">Confirmó como "${escapeHtml(last.nombre)}"${restricciones ? ` · 🍽 ${escapeHtml(restricciones)}` : ''}</span>`;
         }
 
         // Event listeners
