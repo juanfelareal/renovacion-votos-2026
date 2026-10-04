@@ -269,6 +269,85 @@
             height: 18px;
         }
 
+        /* Gifts */
+        .gifts-section {
+            background: var(--color-bg-warm);
+            text-align: center;
+        }
+
+        .gifts-text {
+            max-width: 560px;
+            margin: 0 auto;
+            color: var(--color-text-light);
+            font-size: 0.95rem;
+            line-height: 1.8;
+        }
+
+        .gifts-text p + p {
+            margin-top: 16px;
+        }
+
+        .gifts-ideas {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin: 40px auto;
+        }
+
+        .gift-idea {
+            flex: 1 1 200px;
+            max-width: 240px;
+            padding: 28px 20px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 30px rgba(0,0,0,0.04);
+        }
+
+        .gift-idea-icon {
+            font-size: 1.8rem;
+            display: block;
+            margin-bottom: 12px;
+        }
+
+        .gift-idea-title {
+            font-family: var(--font-serif);
+            font-size: 1.3rem;
+            color: var(--color-accent-dark);
+            display: block;
+        }
+
+        .gift-idea-text {
+            font-size: 0.8rem;
+            color: var(--color-text-light);
+        }
+
+        .wishlist-link {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 10px 22px;
+            background: var(--color-accent-dark);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: transform 0.2s;
+        }
+
+        .wishlist-link:hover {
+            transform: translateY(-2px);
+        }
+
+        .gifts-reminder {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 1.25rem;
+            color: var(--color-accent-dark);
+            max-width: 520px;
+            margin: 0 auto;
+        }
+
         /* RSVP Form */
         .rsvp-section {
             background: var(--color-bg);
@@ -572,6 +651,33 @@
                 Ver tablero completo
             </a>
         </div>
+    </section>
+
+    <!-- Gifts -->
+    <section class="gifts-section" id="regalos">
+        <h2 class="section-title">Guía de regalos</h2>
+
+        <div class="gifts-text">
+            <p>El regalo más bonito que nos puedes dar es que nos acompañes ese día.</p>
+            <p>Pero sabemos que hay personas que prefieren “llegar con cualquier cosita”. Estaremos estrenando casa, así que nos haría muy felices recibir:</p>
+        </div>
+
+        <div class="gifts-ideas">
+            <div class="gift-idea">
+                <span class="gift-idea-icon">🌿</span>
+                <span class="gift-idea-title">Plantas para exterior</span>
+                <span class="gift-idea-text">Para llenar de verde nuestro nuevo hogar</span>
+            </div>
+            <div class="gift-idea">
+                <span class="gift-idea-icon">🏡</span>
+                <span class="gift-idea-title">Nuestra wishlist</span>
+                <span class="gift-idea-text">Cositas que soñamos para la casa</span>
+                <br>
+                <a href="https://www.amazon.com/registries/gl/guest-view/2H4CDSKKDXV6U" target="_blank" rel="noopener" class="wishlist-link">Ver wishlist</a>
+            </div>
+        </div>
+
+        <p class="gifts-reminder">Pero recuerda: esta fiesta no es un house shower, es nuestra renovación de votos. No te estreses por el regalo.</p>
     </section>
 
     <!-- Footer -->
